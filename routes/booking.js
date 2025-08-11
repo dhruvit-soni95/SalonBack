@@ -43,70 +43,133 @@ router.get("/bookings/user/:phone", async (req, res) => {
 
 
 
+// router.post("/bookings/walk-in", async (req, res) => {
+//   try {
+//     const {
+//       name,
+//       phone,
+//       // email,
+//       services,
+//       barber,
+//       priority = false,
+//     } = req.body;
+
+//     // ✅ Calculate duration from services array (safely)
+//     const duration = services.reduce((sum, s) => sum + (s.duration || 0), 0);
+
+//     // ✅ Get current queue for the barber
+//     const existingQueue = await Booking.find({
+//       status: "queued",
+//       barber,
+//     }).sort({ queueIndex: 1 });
+
+//     let newQueueIndex = priority ? 0 : existingQueue.length;
+
+//     let estimatedStart;
+//     let estimatedEnd;
+
+//     if (priority) {
+//       // ✅ Place at the top
+//       estimatedStart = new Date();
+//       estimatedEnd = new Date(estimatedStart.getTime() + duration * 60000);
+
+//       // ✅ Shift all existing bookings
+//       let tempTime = new Date(estimatedEnd.getTime());
+//       for (const b of existingQueue) {
+//         const bDuration =
+//           b.services?.reduce((sum, s) => sum + (s.duration || 0), 0) || b.duration;
+
+//         b.queueIndex += 1;
+//         b.estimatedStart = new Date(tempTime);
+//         b.estimatedEnd = new Date(tempTime.getTime() + bDuration * 60000);
+//         tempTime = new Date(tempTime.getTime() + bDuration * 60000);
+//         await b.save();
+//       }
+//     } else {
+//       // ✅ Add to end of queue
+//       if (existingQueue.length > 0) {
+//         const last = existingQueue[existingQueue.length - 1];
+//         const lastDuration =
+//           last.services?.reduce((sum, s) => sum + (s.duration || 0), 0) || last.duration;
+
+//         estimatedStart = new Date(
+//           last.estimatedStart.getTime() + lastDuration * 60000
+//         );
+//       } else {
+//         estimatedStart = new Date();
+//       }
+
+//       estimatedEnd = new Date(estimatedStart.getTime() + duration * 60000);
+//     }
+
+//     // ✅ Save walk-in booking
+//     const newBooking = await Booking.create({
+//       userName: name,
+//       userPhone: phone,
+//       // userEmail: email,
+//       services,
+//       barber,
+//       duration,
+//       estimatedStart,
+//       estimatedEnd,
+//       queueIndex: newQueueIndex,
+//       source: "walk-in",
+//       priorityOverride: priority,
+//       status: "queued",
+//     });
+
+//     res.json({ success: true, booking: newBooking });
+//   } catch (err) {
+//     console.error("Walk-in booking error:", err);
+//     res.status(500).json({ error: "Failed to add walk-in booking" });
+//   }
+// });
+
 router.post("/bookings/walk-in", async (req, res) => {
   try {
     const {
       name,
       phone,
-      // email,
       services,
       barber,
-      priority = false,
     } = req.body;
 
-    // ✅ Calculate duration from services array (safely)
+    // ✅ Calculate total duration from services array
     const duration = services.reduce((sum, s) => sum + (s.duration || 0), 0);
 
-    // ✅ Get current queue for the barber
+    // ✅ Get current queue for the barber (ordered by position)
     const existingQueue = await Booking.find({
       status: "queued",
       barber,
     }).sort({ queueIndex: 1 });
 
-    let newQueueIndex = priority ? 0 : existingQueue.length;
+    // ✅ Always put walk-in at the END of the queue
+    const newQueueIndex = existingQueue.length;
 
     let estimatedStart;
     let estimatedEnd;
 
-    if (priority) {
-      // ✅ Place at the top
-      estimatedStart = new Date();
-      estimatedEnd = new Date(estimatedStart.getTime() + duration * 60000);
+    if (existingQueue.length > 0) {
+      // ✅ Find last booking in the queue
+      const last = existingQueue[existingQueue.length - 1];
+      const lastDuration =
+        last.services?.reduce((sum, s) => sum + (s.duration || 0), 0) || last.duration;
 
-      // ✅ Shift all existing bookings
-      let tempTime = new Date(estimatedEnd.getTime());
-      for (const b of existingQueue) {
-        const bDuration =
-          b.services?.reduce((sum, s) => sum + (s.duration || 0), 0) || b.duration;
-
-        b.queueIndex += 1;
-        b.estimatedStart = new Date(tempTime);
-        b.estimatedEnd = new Date(tempTime.getTime() + bDuration * 60000);
-        tempTime = new Date(tempTime.getTime() + bDuration * 60000);
-        await b.save();
-      }
+      // Start right after the last booking ends
+      estimatedStart = new Date(
+        last.estimatedStart.getTime() + lastDuration * 60000
+      );
     } else {
-      // ✅ Add to end of queue
-      if (existingQueue.length > 0) {
-        const last = existingQueue[existingQueue.length - 1];
-        const lastDuration =
-          last.services?.reduce((sum, s) => sum + (s.duration || 0), 0) || last.duration;
-
-        estimatedStart = new Date(
-          last.estimatedStart.getTime() + lastDuration * 60000
-        );
-      } else {
-        estimatedStart = new Date();
-      }
-
-      estimatedEnd = new Date(estimatedStart.getTime() + duration * 60000);
+      // ✅ If no one in queue, start now
+      estimatedStart = new Date();
     }
 
-    // ✅ Save walk-in booking
+    estimatedEnd = new Date(estimatedStart.getTime() + duration * 60000);
+
+    // ✅ Create the new walk-in booking
     const newBooking = await Booking.create({
       userName: name,
       userPhone: phone,
-      // userEmail: email,
       services,
       barber,
       duration,
@@ -114,7 +177,7 @@ router.post("/bookings/walk-in", async (req, res) => {
       estimatedEnd,
       queueIndex: newQueueIndex,
       source: "walk-in",
-      priorityOverride: priority,
+      priorityOverride: false, // Always false for walk-ins
       status: "queued",
     });
 
@@ -124,6 +187,7 @@ router.post("/bookings/walk-in", async (req, res) => {
     res.status(500).json({ error: "Failed to add walk-in booking" });
   }
 });
+
 
 
 
