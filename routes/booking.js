@@ -336,13 +336,61 @@ setInterval(async () => {
 
 
 
+// router.get("/api/queue", async (req, res) => {
+//   try {
+//     const queue = await Booking.find({ status: "queued" }).sort({ queueIndex: 1 }).lean();
+
+//     const now = new Date();
+//     let currentTime = now;
+
+//     const runningBooking = queue.find((b) => {
+//       const start = new Date(b.estimatedStart);
+//       const end = new Date(start.getTime() + b.duration * 60000);
+//       return start <= now && now < end;
+//     });
+
+//     if (runningBooking) {
+//       const start = new Date(runningBooking.estimatedStart);
+//       const end = new Date(start.getTime() + runningBooking.duration * 60000);
+//       const remaining = end - now;
+//       currentTime = new Date(currentTime.getTime() + remaining);
+//     }
+
+//     // Allow a grace period of 2 minutes
+//     const GRACE_PERIOD_MS = 2 * 60 * 1000;
+
+//     const enriched = queue
+//       .filter((b) => {
+//         const start = new Date(b.estimatedStart);
+//         const end = new Date(start.getTime() + b.duration * 60000);
+//         return now - end < GRACE_PERIOD_MS;
+//       })
+//       .map((b) => {
+//         const est = new Date(b.estimatedStart);
+//         const waitMs = Math.max(est - now, 0);
+//         return {
+//           ...b,
+//           waitTimeMinutes: Math.ceil(waitMs / 60000),
+//         };
+//       });
+
+//     res.json({ queue: enriched });
+//   } catch (err) {
+//     console.error("Fetch queue failed:", err);
+//     res.status(500).json({ error: "Failed to fetch queue" });
+//   }
+// });
+
 router.get("/api/queue", async (req, res) => {
   try {
-    const queue = await Booking.find({ status: "queued" }).sort({ queueIndex: 1 }).lean();
+    let queue = await Booking.find({ status: "queued" })
+      .sort({ queueIndex: 1 })
+      .lean();
 
     const now = new Date();
     let currentTime = now;
 
+    // Find running booking (if any) and adjust start time
     const runningBooking = queue.find((b) => {
       const start = new Date(b.estimatedStart);
       const end = new Date(start.getTime() + b.duration * 60000);
@@ -356,18 +404,31 @@ router.get("/api/queue", async (req, res) => {
       currentTime = new Date(currentTime.getTime() + remaining);
     }
 
-    // Allow a grace period of 2 minutes
-    const GRACE_PERIOD_MS = 2 * 60 * 1000;
+    // Recalculate estimatedStart/End based on queueIndex order
+    queue = queue.map((b, idx) => {
+      if (idx === 0 && runningBooking) {
+        // If this is the running booking, keep its actual start
+        return b;
+      }
+      const startTime = currentTime;
+      const endTime = new Date(startTime.getTime() + b.duration * 60000);
+      currentTime = endTime;
+      return {
+        ...b,
+        estimatedStart: startTime,
+        estimatedEnd: endTime,
+      };
+    });
 
+    // Grace period filter
+    const GRACE_PERIOD_MS = 2 * 60 * 1000;
     const enriched = queue
       .filter((b) => {
-        const start = new Date(b.estimatedStart);
-        const end = new Date(start.getTime() + b.duration * 60000);
+        const end = new Date(new Date(b.estimatedStart).getTime() + b.duration * 60000);
         return now - end < GRACE_PERIOD_MS;
       })
       .map((b) => {
-        const est = new Date(b.estimatedStart);
-        const waitMs = Math.max(est - now, 0);
+        const waitMs = Math.max(new Date(b.estimatedStart) - now, 0);
         return {
           ...b,
           waitTimeMinutes: Math.ceil(waitMs / 60000),
@@ -380,6 +441,7 @@ router.get("/api/queue", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch queue" });
   }
 });
+
 
 
 
