@@ -144,7 +144,14 @@ router.post("/bookings/walk-in", async (req, res) => {
     }).sort({ queueIndex: 1 });
 
     // ✅ Always put walk-in at the END of the queue
-    const newQueueIndex = existingQueue.length;
+    // const newQueueIndex = existingQueue.length;
+
+    // ✅ Always put walk-in STRICTLY after the last booking in the queue
+    const lastBooking = await Booking.findOne({ status: "queued", barber })
+      .sort({ queueIndex: -1 })
+      .lean();
+
+    const newQueueIndex = lastBooking ? lastBooking.queueIndex + 1 : 0;
 
     let estimatedStart;
     let estimatedEnd;
