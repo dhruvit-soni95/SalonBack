@@ -31,17 +31,18 @@ router.delete("/categories/:id", async (req, res) => {
 router.post("/services/:categoryId/add", async (req, res) => {
   const { name, price, duration } = req.body;
   const category = await ServiceCategory.findById(req.params.categoryId);
-  category.services.push({ name, price, duration });
+  category.services.push({ name, description, price, duration });
   await category.save();
   res.json({ success: true });
 });
 
 // PUT edit service
 router.put("/services/:categoryId/edit/:serviceId", async (req, res) => {
-  const { name, price, duration } = req.body;
+  const { name, description, price, duration } = req.body;
   const category = await ServiceCategory.findById(req.params.categoryId);
   const service = category.services.id(req.params.serviceId);
   service.name = name;
+  service.description = description;
   service.price = price;
   service.duration = duration;
   await category.save();

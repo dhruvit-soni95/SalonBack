@@ -12,31 +12,29 @@ const router = express.Router();
 
 
 // twilio.js
-// const twilio = require("twilio");
-// const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+const twilio = require("twilio");
+const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
 
-// const sendOTP = async (phone, otp) => {
-//   return await client.messages.create({
-//     body: `🧾 Your verification code is: ${otp}`,
-//     from: process.env.TWILIO_PHONE,
-//     to: `+91${phone}`,
-//   });
-// };
-
-// vonage.js
-// const Vonage = require("@vonage/server-sdk");
-
-const { Vonage } = require('@vonage/server-sdk');
-const vonage = new Vonage({
-  apiKey: "8f848bd3",
-  apiSecret: "fEPi2hM5fTBBrcvl",
-});
-
-const sendOTP = async (from, to, text)  => {
-    await vonage.sms.send({to, from, text})
-        .then(resp => { console.log('Message sent successfully'); console.log(resp); })
-        .catch(err => { console.log('There was an error sending the messages.'); console.error(err); });
+const sendOTP = async (phone, otp) => {
+  return await client.messages.create({
+    body: `🧾Jaysh Barbershop, Your verification code is: ${otp}`,
+    from: process.env.TWILIO_PHONE,
+    to: `+1${phone}`,
+  });
 };
+
+
+// const { Vonage } = require('@vonage/server-sdk');
+// const vonage = new Vonage({
+//   apiKey: "8f848bd3",
+//   apiSecret: "fEPi2hM5fTBBrcvl",
+// });
+
+// const sendOTP = async (from, to, text)  => {
+//     await vonage.sms.send({to, from, text})
+//         .then(resp => { console.log('Message sent successfully'); console.log(resp); })
+//         .catch(err => { console.log('There was an error sending the messages.'); console.error(err); });
+// };
 
 
 
@@ -58,7 +56,8 @@ router.get("/users/:phone", async (req, res) => {
       await user.save();
     }
 
-    await sendOTP("Jayesh Barber Shop",`1${phone}`, `Your OTP is ${otp}`);
+    await sendOTP(phone, otp);
+    // await sendOTP("Jayesh Barber Shop",`1${phone}`, `Your OTP is ${otp}`);
 
     res.json({ exists: !!user.name, user }); // don’t send OTP in production
   } catch (err) {
@@ -103,7 +102,8 @@ router.post("/users", async (req, res) => {
     }
 
     // await sendOTP(phone, otp, "91");
-    await sendOTP("Jayesh Barber Shop",`1${phone}`, `Your OTP is ${otp}`);
+    await sendOTP(phone, otp);
+    // await sendOTP("Jayesh Barber Shop",`1${phone}`, `Your OTP is ${otp}`);
 
     res.status(201).json({ user }); // don't send OTP here
   } catch (error) {
