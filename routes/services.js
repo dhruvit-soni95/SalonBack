@@ -29,25 +29,80 @@ router.delete("/categories/:id", async (req, res) => {
 
 // POST add service
 router.post("/services/:categoryId/add", async (req, res) => {
-  const { name, price, duration } = req.body;
-  const category = await ServiceCategory.findById(req.params.categoryId);
-  category.services.push({ name, description, price, duration });
-  await category.save();
-  res.json({ success: true });
+  const { name, description, price, duration, isChild } = req.body; // include isChild
+  try {
+    const category = await ServiceCategory.findById(req.params.categoryId);
+    if (!category) {
+      return res.status(404).json({ error: "Category not found" });
+    }
+
+    category.services.push({
+      name,
+      description,
+      price,
+      duration,
+      isChild: Boolean(isChild), // ensure it's a boolean
+    });
+
+    await category.save();
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Add service error:", err);
+    res.status(500).json({ error: "Failed to add service" });
+  }
 });
 
 // PUT edit service
 router.put("/services/:categoryId/edit/:serviceId", async (req, res) => {
-  const { name, description, price, duration } = req.body;
-  const category = await ServiceCategory.findById(req.params.categoryId);
-  const service = category.services.id(req.params.serviceId);
-  service.name = name;
-  service.description = description;
-  service.price = price;
-  service.duration = duration;
-  await category.save();
-  res.json({ success: true });
+  const { name, description, price, duration, isChild } = req.body; // include isChild
+  try {
+    const category = await ServiceCategory.findById(req.params.categoryId);
+    if (!category) {
+      return res.status(404).json({ error: "Category not found" });
+    }
+
+    const service = category.services.id(req.params.serviceId);
+    if (!service) {
+      return res.status(404).json({ error: "Service not found" });
+    }
+
+    service.name = name;
+    service.description = description;
+    service.price = price;
+    service.duration = duration;
+    service.isChild = Boolean(isChild); // ensure it's a boolean
+
+    await category.save();
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Edit service error:", err);
+    res.status(500).json({ error: "Failed to edit service" });
+  }
 });
+
+
+
+// POST add service
+// router.post("/services/:categoryId/add", async (req, res) => {
+//   const { name, price, duration } = req.body;
+//   const category = await ServiceCategory.findById(req.params.categoryId);
+//   category.services.push({ name, description, price, duration });
+//   await category.save();
+//   res.json({ success: true });
+// });
+
+// PUT edit service
+// router.put("/services/:categoryId/edit/:serviceId", async (req, res) => {
+//   const { name, description, price, duration } = req.body;
+//   const category = await ServiceCategory.findById(req.params.categoryId);
+//   const service = category.services.id(req.params.serviceId);
+//   service.name = name;
+//   service.description = description;
+//   service.price = price;
+//   service.duration = duration;
+//   await category.save();
+//   res.json({ success: true });
+// });
 
 // DELETE service
 router.delete("/services/:categoryId/delete/:serviceId", async (req, res) => {
@@ -141,18 +196,39 @@ router.post("/seed-services", async (req, res) => {
 
 
 
+// router.get("/services", async (req, res) => {
+//   try {
+//     const categories = await ServiceCategory.find({});
+//     const response = {
+//       main: [],
+//       addons: [],
+//       extras: [],
+//       combos: [],
+//     };
+
+//     categories.forEach(cat => {
+//       response[cat.category] = cat.services;
+//     });
+
+//     res.json(response);
+//   } catch (err) {
+//     console.error("Error fetching services:", err);
+//     res.status(500).json({ error: "Failed to fetch services" });
+//   }
+// });
+
 router.get("/services", async (req, res) => {
   try {
+    const { isChild } = req.query; // ?isChild=true or false
     const categories = await ServiceCategory.find({});
-    const response = {
-      main: [],
-      addons: [],
-      extras: [],
-      combos: [],
-    };
 
+    const response = {};
     categories.forEach(cat => {
-      response[cat.category] = cat.services;
+      let filtered = cat.services;
+      if (isChild === "true") {
+        filtered = filtered.filter(s => s.isChild);
+      }
+      response[cat.category] = filtered;
     });
 
     res.json(response);
@@ -161,7 +237,6 @@ router.get("/services", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch services" });
   }
 });
-
 
 
 

@@ -833,14 +833,28 @@ router.post("/live-queue/save", async (req, res) => {
 });
 
 
-router.get("/live-queue/getting", async (req, res) => {
+// router.get("/live-queue/getting", async (req, res) => {
+//   try {
+//     const latest = await LiveQueue.findOne().sort({ updatedAt: -1 });
+//     res.json(latest || { queue: [] });
+//   } catch (err) {
+//     res.status(500).json({ error: "Server error" });
+//   }
+// });
+router.get("/live-queue/getting", async (req, res) => { 
   try {
     const latest = await LiveQueue.findOne().sort({ updatedAt: -1 });
-    res.json(latest || { queue: [] });
+    if (!latest) {
+      return res.json({ queue: [] });
+    }
+    res.json({
+      queue: latest.queue || []  // always send an array
+    });
   } catch (err) {
     res.status(500).json({ error: "Server error" });
   }
 });
+
 
 
 
